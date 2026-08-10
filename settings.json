@@ -1,3 +1,9 @@
 {
-    "nginx_config_path": "proxies.conf"
+    "nginx_config_path": "/etc/nginx/sites-available/generated.conf",
+    "nginx_ip": "192.168.2.5",
+
+    "adguard_enabled": true,
+    "adguard_url": "http://adguard.home.arpa",
+    "adguard_username": "YOUR_ADGUARD_USERNAME",
+    "adguard_password": "YOUR_ADGUARD_PASSWORD"
 }

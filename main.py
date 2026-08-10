@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 import json
 import subprocess
+import requests
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -92,9 +93,80 @@ def generate_nginx_config(proxies):
     with open(nginx_config_path, "w", encoding="utf-8") as file:
         file.write("\n\n".join(config_lines))
         
+
+
+def add_adguard_rewrite(domain, settings):
+    url = settings["adguard_url"].rstrip("/")
+
+    response = requests.post(
+        f"{url}/control/rewrite/add",
+        json={
+            "domain": domain,
+            "answer": settings["nginx_ip"]
+        },
+        auth=(
+            settings["adguard_username"],
+            settings["adguard_password"]
+        ),
+        timeout=5
+    )
+
+    response.raise_for_status()
+
+
+def delete_adguard_rewrite(domain, settings):
+    url = settings["adguard_url"].rstrip("/")
+
+    response = requests.post(
+        f"{url}/control/rewrite/delete",
+        json={
+            "domain": domain,
+            "answer": settings["nginx_ip"]
+        },
+        auth=(
+            settings["adguard_username"],
+            settings["adguard_password"]
+        ),
+        timeout=5
+    )
+
+    response.raise_for_status()
+    
+def sync_adguard_rewrites(old_proxies, new_proxies, settings):
+
+    old_domains = {
+        proxy["domain"].strip().lower()
+        for proxy in old_proxies
+    }
+
+    new_domains = {
+        proxy["domain"].strip().lower()
+        for proxy in new_proxies
+    }
+
+    added_domains = new_domains - old_domains
+    removed_domains = old_domains - new_domains
+
+    for domain in added_domains:
+        add_adguard_rewrite(domain, settings)
+
+    for domain in removed_domains:
+        delete_adguard_rewrite(domain, settings)
+        
 def save_config(proxies):
+    
+    old_proxies = load_proxies()
+    settings = load_settings()
+    
     save_proxies(proxies)
     generate_nginx_config(proxies)
+    
+    if settings.get("adguard_enabled", False):
+        sync_adguard_rewrites(
+            old_proxies,
+            proxies,
+            settings
+        )
 
 @app.get("/config")
 def config(request: Request):
