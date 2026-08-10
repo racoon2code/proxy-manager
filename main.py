@@ -7,10 +7,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import json
+import subprocess
 
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = BASE_DIR / "config.json"
+SETTINGS_FILE = BASE_DIR / "settings.json"
 
 app = FastAPI()
 
@@ -23,6 +25,29 @@ app.mount(
     StaticFiles(directory=BASE_DIR / "static"),
     name="static"
 )
+
+def load_settings():
+    with open(SETTINGS_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+def check_nginx_config():
+    result = subprocess.run(
+        ["nginx", "-t"],
+        capture_output=True,
+        text=True
+    )
+
+    return result.returncode == 0, result.stderr
+
+
+def reload_nginx():
+    result = subprocess.run(
+        ["systemctl", "reload", "nginx"],
+        capture_output=True,
+        text=True
+    )
+
+    return result.returncode == 0, result.stderr    
 
 def load_proxies():
     if not CONFIG_FILE.exists():
@@ -52,14 +77,20 @@ def generate_nginx_config(proxies):
 
                 location / {{
                     proxy_pass {proxy['protocol']}://{proxy['target']}:{proxy['port']};
+
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
                 }}
-            }}""").strip()
+            }}
+        """).strip()
+
         config_lines.append(server_block)
-        
-    with open(BASE_DIR / "proxies.conf", "w", encoding="utf-8") as file:
-        file.write("\n".join(config_lines))
+
+    settings = load_settings()
+    nginx_config_path = Path(settings["nginx_config_path"])
+
+    with open(nginx_config_path, "w", encoding="utf-8") as file:
+        file.write("\n\n".join(config_lines))
         
 def save_config(proxies):
     save_proxies(proxies)
@@ -137,5 +168,37 @@ def config_delete(proxy_id: int):
 
     return RedirectResponse(
         url="/config",
+        status_code=303
+    )
+    
+@app.post("/config/apply")
+def config_apply():
+
+    proxies = load_proxies()
+
+    generate_nginx_config(proxies)
+
+    success, message = check_nginx_config()
+
+    if not success:
+        print(message)
+
+        return RedirectResponse(
+            url="/config?status=error",
+            status_code=303
+        )
+
+    success, message = reload_nginx()
+
+    if not success:
+        print(message)
+
+        return RedirectResponse(
+            url="/config?status=reload_error",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url="/config?status=success",
         status_code=303
     )

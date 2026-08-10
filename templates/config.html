@@ -9,10 +9,28 @@ Konfiguration
 <div class="d-flex justify-content-between align-items-center mb-4">
 
     <h1>Reverse Proxy</h1>
+<div class="d-flex gap-2">
 
-    <a href="/config/add" class="btn btn-primary">
+    <a
+        href="/config/add"
+        class="btn btn-primary"
+    >
         + Hinzufügen
     </a>
+
+    <form
+        action="/config/apply"
+        method="post"
+    >
+        <button
+            type="submit"
+            class="btn btn-success"
+        >
+            Konfiguration anwenden
+        </button>
+    </form>
+
+</div>
 
 </div>
 
