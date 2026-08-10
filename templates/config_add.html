@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}
+Proxy hinzufügen
+{% endblock %}
+
+{% block content %}
+
+<h1 class="mb-4">
+    Reverse Proxy hinzufügen
+</h1>
+
+
+<form action="/config/add" method="post">
+
+    <div class="mb-3">
+
+        <label
+            for="name"
+            class="form-label">
+            Name
+        </label>
+
+        <input
+            type="text"
+            class="form-control"
+            id="name"
+            name="name"
+            placeholder="Proxmox"
+        >
+
+    </div>
+
+
+    <div class="mb-3">
+
+        <label
+            for="domain"
+            class="form-label">
+            Domain
+        </label>
+
+        <input
+            type="text"
+            class="form-control"
+            id="domain"
+            name="domain"
+            placeholder="proxmox.home.arpa"
+        >
+
+    </div>
+
+
+    <div class="mb-3">
+
+        <label
+            for="target"
+            class="form-label">
+            Ziel-IP
+        </label>
+
+        <input
+            type="text"
+            class="form-control"
+            id="target"
+            name="target"
+            placeholder="192.168.2.10"
+        >
+
+    </div>
+
+
+    <div class="mb-3">
+
+        <label
+            for="port"
+            class="form-label">
+            Port
+        </label>
+
+        <input
+            type="number"
+            class="form-control"
+            id="port"
+            name="port"
+            placeholder="8006"
+        >
+
+    </div>
+
+
+    <div class="mb-4">
+
+        <label
+            for="protocol"
+            class="form-label">
+            Protokoll
+        </label>
+
+        <select
+            class="form-select"
+            id="protocol"
+            name="protocol">
+
+            <option value="http">
+                HTTP
+            </option>
+
+            <option value="https">
+                HTTPS
+            </option>
+
+        </select>
+
+    </div>
+
+
+    <div class="d-flex gap-2">
+
+        <button
+            type="submit"
+            class="btn btn-primary">
+            Speichern
+        </button>
+
+        <a
+            href="/config"
+            class="btn btn-secondary">
+            Abbrechen
+        </a>
+
+    </div>
+
+</form>
+
+{% endblock %}

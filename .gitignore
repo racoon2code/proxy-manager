@@ -6,3 +6,5 @@ __pycache__/
 .idea/
 config.json
 *.log
+help.txt
+proxies.conf
