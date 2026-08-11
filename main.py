@@ -89,57 +89,155 @@ def build_nginx_config(proxies):
     config_lines = []
 
     for proxy in proxies:
-        server_block = dedent(f"""
-            server {{
-                listen 80;
-                server_name {proxy['domain']};
 
-                location / {{
-                    proxy_pass {proxy['protocol']}://{proxy['target']}:{proxy['port']};
+        if proxy.get("tls_passthrough", False):
 
-                    proxy_http_version 1.1;
+            server_block = dedent(f"""
+                server {{
+                    listen 80;
+                    server_name {proxy['domain']};
 
-                    proxy_set_header Upgrade $http_upgrade;
-                    proxy_set_header Connection "upgrade";
-
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
+                    return 301 https://$host$request_uri;
                 }}
-            }}
-        """).strip()
+            """).strip()
+
+        else:
+
+            server_block = dedent(f"""
+                server {{
+                    listen 80;
+                    server_name {proxy['domain']};
+
+                    location / {{
+                        proxy_pass {proxy['protocol']}://{proxy['target']}:{proxy['port']};
+
+                        proxy_http_version 1.1;
+
+                        proxy_set_header Upgrade $http_upgrade;
+                        proxy_set_header Connection "upgrade";
+
+                        proxy_set_header Host $host;
+                        proxy_set_header X-Real-IP $remote_addr;
+                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                        proxy_set_header X-Forwarded-Proto $scheme;
+                    }}
+                }}
+            """).strip()
 
         config_lines.append(server_block)
 
     return "\n\n".join(config_lines)
 
+def build_nginx_stream_config(proxies):
+
+    passthrough_proxies = [
+        proxy
+        for proxy in proxies
+        if proxy.get("tls_passthrough", False)
+    ]
+
+    if not passthrough_proxies:
+        return ""
+
+    config_lines = [
+        "map $ssl_preread_server_name $proxy_manager_tls_backend {",
+        "    default 127.0.0.1:9;"
+    ]
+
+    for proxy in passthrough_proxies:
+        config_lines.append(
+            f"    {proxy['domain']} {proxy['target']}:{proxy['port']};"
+        )
+
+    config_lines.extend([
+        "}",
+        "",
+        "server {",
+        "    listen 443;",
+        "",
+        "    ssl_preread on;",
+        "",
+        "    proxy_connect_timeout 10s;",
+        "    proxy_timeout 3600s;",
+        "",
+        "    proxy_pass $proxy_manager_tls_backend;",
+        "}"
+    ])
+
+    return "\n".join(config_lines)
+
 
 def generate_nginx_config(proxies):
+
     settings = load_settings()
-    nginx_config_path = Path(settings["nginx_config_path"])
+
+    nginx_config_path = Path(
+        settings["nginx_config_path"]
+    )
+
+    nginx_stream_config_path = Path(
+        settings["nginx_stream_config_path"]
+    )
 
     nginx_config = build_nginx_config(proxies)
+    nginx_stream_config = build_nginx_stream_config(proxies)
 
-    with open(nginx_config_path, "w", encoding="utf-8") as file:
+    with open(
+        nginx_config_path,
+        "w",
+        encoding="utf-8"
+    ) as file:
         file.write(nginx_config)
+
+    with open(
+        nginx_stream_config_path,
+        "w",
+        encoding="utf-8"
+    ) as file:
+        file.write(nginx_stream_config)
 
 
 def nginx_config_pending():
+
     proxies = load_proxies()
     settings = load_settings()
 
-    nginx_config_path = Path(settings["nginx_config_path"])
+    nginx_config_path = Path(
+        settings["nginx_config_path"]
+    )
+
+    nginx_stream_config_path = Path(
+        settings["nginx_stream_config_path"]
+    )
 
     expected_config = build_nginx_config(proxies)
+    expected_stream_config = build_nginx_stream_config(proxies)
 
     if not nginx_config_path.exists():
         return True
 
-    with open(nginx_config_path, "r", encoding="utf-8") as file:
+    if not nginx_stream_config_path.exists():
+        return True
+
+    with open(
+        nginx_config_path,
+        "r",
+        encoding="utf-8"
+    ) as file:
         current_config = file.read()
 
-    return expected_config != current_config
+    with open(
+        nginx_stream_config_path,
+        "r",
+        encoding="utf-8"
+    ) as file:
+        current_stream_config = file.read()
+
+    return (
+        expected_config != current_config
+        or
+        expected_stream_config != current_stream_config
+    )
 
 
 def get_local_version():
@@ -437,7 +535,8 @@ def config_add_save(
     domain: str = Form(...),
     target: str = Form(...),
     port: int | None = Form(None),
-    protocol: str = Form(...)
+    protocol: str = Form(...),
+    tls_passthrough: bool = Form(False)
 ):
 
     proxies = load_proxies()
@@ -453,12 +552,14 @@ def config_add_save(
         "domain": domain,
         "target": target,
         "port": port,
-        "protocol": protocol
+        "protocol": protocol,
+        "tls_passthrough": tls_passthrough
     }
 
     if port is None:
         if protocol == "http":
             new_proxy["port"] = 80
+
         if protocol == "https":
             new_proxy["port"] = 443
 
@@ -497,13 +598,34 @@ def config_apply():
     proxies = load_proxies()
 
     settings = load_settings()
-    nginx_config_path = Path(settings["nginx_config_path"])
+
+    nginx_config_path = Path(
+        settings["nginx_config_path"]
+    )
+
+    nginx_stream_config_path = Path(
+        settings["nginx_stream_config_path"]
+    )
 
     old_config = ""
 
     if nginx_config_path.exists():
-        with open(nginx_config_path, "r", encoding="utf-8") as file:
+        with open(
+            nginx_config_path,
+            "r",
+            encoding="utf-8"
+        ) as file:
             old_config = file.read()
+
+    old_stream_config = ""
+
+    if nginx_stream_config_path.exists():
+        with open(
+            nginx_stream_config_path,
+            "r",
+            encoding="utf-8"
+        ) as file:
+            old_stream_config = file.read()
 
     generate_nginx_config(proxies)
 
@@ -521,8 +643,19 @@ def config_apply():
         print(result.stdout)
         print(result.stderr)
 
-        with open(nginx_config_path, "w", encoding="utf-8") as file:
+        with open(
+            nginx_config_path,
+            "w",
+            encoding="utf-8"
+        ) as file:
             file.write(old_config)
+
+        with open(
+            nginx_stream_config_path,
+            "w",
+            encoding="utf-8"
+        ) as file:
+            file.write(old_stream_config)
 
         return RedirectResponse(
             url="/config?status=error",

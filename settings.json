@@ -1,5 +1,6 @@
 {
     "nginx_config_path": "/etc/nginx/sites-available/generated.conf",
+    "nginx_stream_config_path": "/etc/nginx/stream-enabled/generated-stream.conf",
     "nginx_ip": "XXX.XXX.XXX.XXX",
 
     "adguard_enabled": false,

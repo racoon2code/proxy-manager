@@ -26,8 +26,12 @@ Home
 
     <div class="col">
 
-        <a
-            href="http://{{ proxy.domain }}"
+        <a            
+            {% if proxy.tls_passthrough %}
+                href="https://{{ proxy.domain }}"
+            {% else %}
+                href="http://{{ proxy.domain }}"
+            {% endif %}
             class="text-decoration-none"
         >
 
