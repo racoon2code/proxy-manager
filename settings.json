@@ -1,9 +1,13 @@
 {
     "nginx_config_path": "/etc/nginx/sites-available/generated.conf",
-    "nginx_ip": "192.168.2.5",
+    "nginx_ip": "XXX.XXX.XXX.XXX",
 
     "adguard_enabled": true,
-    "adguard_url": "http://adguard.home.arpa",
+    "adguard_url": "http://adguard.example.com",
     "adguard_username": "YOUR_ADGUARD_USERNAME",
-    "adguard_password": "YOUR_ADGUARD_PASSWORD"
+    "adguard_password": "YOUR_ADGUARD_PASSWORD",
+
+    "update_enabled": true,
+    "update_branch": "main",
+    "update_version_url": "https://raw.githubusercontent.com/racoon2code/proxy-manager/main/VERSION"
 }

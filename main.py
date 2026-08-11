@@ -18,6 +18,7 @@ import requests
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = BASE_DIR / "config.json"
 SETTINGS_FILE = BASE_DIR / "settings.json"
+VERSION_FILE = BASE_DIR / "VERSION"
 
 app = FastAPI()
 
@@ -31,9 +32,11 @@ app.mount(
     name="static"
 )
 
+
 def load_settings():
     with open(SETTINGS_FILE, "r", encoding="utf-8") as file:
         return json.load(file)
+
 
 def proxy_ip_sort_key(proxy):
     try:
@@ -42,6 +45,7 @@ def proxy_ip_sort_key(proxy):
     except ValueError:
         # Falls irgendwann statt einer IP ein Hostname eingetragen wird
         return (1, 0, proxy["target"].casefold())
+
 
 def check_nginx_config():
     result = subprocess.run(
@@ -60,7 +64,8 @@ def reload_nginx():
         text=True
     )
 
-    return result.returncode == 0, result.stderr    
+    return result.returncode == 0, result.stderr
+
 
 def load_proxies():
     if not CONFIG_FILE.exists():
@@ -79,7 +84,8 @@ def save_proxies(proxies):
             ensure_ascii=False
         )
 
-def generate_nginx_config(proxies):
+
+def build_nginx_config(proxies):
     config_lines = []
 
     for proxy in proxies:
@@ -106,12 +112,97 @@ def generate_nginx_config(proxies):
 
         config_lines.append(server_block)
 
+    return "\n\n".join(config_lines)
+
+
+def generate_nginx_config(proxies):
     settings = load_settings()
     nginx_config_path = Path(settings["nginx_config_path"])
 
+    nginx_config = build_nginx_config(proxies)
+
     with open(nginx_config_path, "w", encoding="utf-8") as file:
-        file.write("\n\n".join(config_lines))
-        
+        file.write(nginx_config)
+
+
+def nginx_config_pending():
+    proxies = load_proxies()
+    settings = load_settings()
+
+    nginx_config_path = Path(settings["nginx_config_path"])
+
+    expected_config = build_nginx_config(proxies)
+
+    if not nginx_config_path.exists():
+        return True
+
+    with open(nginx_config_path, "r", encoding="utf-8") as file:
+        current_config = file.read()
+
+    return expected_config != current_config
+
+
+def get_local_version():
+    if not VERSION_FILE.exists():
+        return "unknown"
+
+    return VERSION_FILE.read_text(
+        encoding="utf-8"
+    ).strip()
+
+
+def get_remote_version():
+    settings = load_settings()
+
+    if not settings.get("update_enabled", False):
+        return None
+
+    try:
+        response = requests.get(
+            settings["update_version_url"],
+            timeout=5
+        )
+
+        response.raise_for_status()
+
+        return response.text.strip()
+
+    except requests.RequestException:
+        return None
+
+
+def get_update_status():
+    settings = load_settings()
+
+    local_version = get_local_version()
+
+    if not settings.get("update_enabled", False):
+        return {
+            "enabled": False,
+            "local_version": local_version,
+            "remote_version": None,
+            "available": False,
+            "check_failed": False
+        }
+
+    remote_version = get_remote_version()
+
+    if remote_version is None:
+        return {
+            "enabled": True,
+            "local_version": local_version,
+            "remote_version": None,
+            "available": False,
+            "check_failed": True
+        }
+
+    return {
+        "enabled": True,
+        "local_version": local_version,
+        "remote_version": remote_version,
+        "available": local_version != remote_version,
+        "check_failed": False
+    }
 
 
 def add_adguard_rewrite(domain, settings):
@@ -150,7 +241,8 @@ def delete_adguard_rewrite(domain, settings):
     )
 
     response.raise_for_status()
-    
+
+
 def sync_adguard_rewrites(old_proxies, new_proxies, settings):
 
     old_domains = {
@@ -171,15 +263,17 @@ def sync_adguard_rewrites(old_proxies, new_proxies, settings):
 
     for domain in removed_domains:
         delete_adguard_rewrite(domain, settings)
-        
+
+
 def save_config(proxies):
-    
+
     old_proxies = load_proxies()
     settings = load_settings()
-    
+
     save_proxies(proxies)
-    generate_nginx_config(proxies)
-    
+
+    settings = load_settings()
+
     if settings.get("adguard_enabled", False):
         sync_adguard_rewrites(
             old_proxies,
@@ -289,6 +383,7 @@ def favicon(proxy_id: int):
             url="/static/default-icon.svg"
         )
 
+
 @app.get("/")
 def home(request: Request):
 
@@ -305,6 +400,8 @@ def home(request: Request):
             "proxies": proxies
         }
     )
+
+
 @app.get("/config")
 def config(request: Request):
 
@@ -312,11 +409,15 @@ def config(request: Request):
 
     proxies.sort(key=proxy_ip_sort_key)
 
+    update_status = get_update_status()
+
     return templates.TemplateResponse(
         request=request,
         name="config.html",
         context={
-            "proxies": proxies
+            "proxies": proxies,
+            "config_pending": nginx_config_pending(),
+            "update_status": update_status
         }
     )
 
@@ -369,7 +470,8 @@ def config_add_save(
         url="/config",
         status_code=303
     )
-    
+
+
 @app.post("/config/delete/{proxy_id}")
 def config_delete(proxy_id: int):
 
@@ -387,11 +489,21 @@ def config_delete(proxy_id: int):
         url="/config",
         status_code=303
     )
-    
+
+
 @app.post("/config/apply")
 def config_apply():
 
     proxies = load_proxies()
+
+    settings = load_settings()
+    nginx_config_path = Path(settings["nginx_config_path"])
+
+    old_config = ""
+
+    if nginx_config_path.exists():
+        with open(nginx_config_path, "r", encoding="utf-8") as file:
+            old_config = file.read()
 
     generate_nginx_config(proxies)
 
@@ -399,6 +511,9 @@ def config_apply():
 
     if not success:
         print(message)
+
+        with open(nginx_config_path, "w", encoding="utf-8") as file:
+            file.write(old_config)
 
         return RedirectResponse(
             url="/config?status=error",
@@ -417,5 +532,42 @@ def config_apply():
 
     return RedirectResponse(
         url="/config?status=success",
+        status_code=303
+    )
+
+
+@app.post("/config/update")
+def config_update():
+
+    settings = load_settings()
+
+    if not settings.get("update_enabled", False):
+        return RedirectResponse(
+            url="/config?update=disabled",
+            status_code=303
+        )
+
+    result = subprocess.run(
+        [
+            "sudo",
+            "systemctl",
+            "start",
+            "--no-block",
+            "proxy-manager-update.service"
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        print(result.stderr)
+
+        return RedirectResponse(
+            url="/config?update=error",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url="/config?update=started",
         status_code=303
     )
