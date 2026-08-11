@@ -1,188 +1,306 @@
-Proxy Manager
+# Proxy Manager
 
-Kleine FastAPI-Webapp zur Verwaltung interner Reverse-Proxy-Einträge für nginx.
+Ein einfacher webbasierter Reverse-Proxy-Manager für kleine Heimnetzwerke und Homelabs.
 
-Was macht das Projekt?
+Der Proxy Manager verwendet **nginx** als Reverse Proxy und stellt eine kleine **FastAPI-Weboberfläche** zur Verfügung, über die interne Dienste verwaltet werden können.
 
-Die Webapp verwaltet Reverse-Proxies über eine einfache Oberfläche unter /config.
+Ziel des Projekts ist eine möglichst einfache Verwaltung interner Dienste ohne manuelles Bearbeiten von nginx-Konfigurationsdateien.
 
-Ein Eintrag besteht z. B. aus:
+---
 
-Name: Proxmox
+## Funktionen
 
-Domain: proxmox.home.arpa
+- Weboberfläche zur Verwaltung von Reverse-Proxy-Einträgen
+- Dienste hinzufügen und löschen
+- Automatische nginx-Konfiguration
+- Prüfung der nginx-Konfiguration vor dem Reload
+- Anzeige noch nicht angewendeter Konfigurationsänderungen
+- Übersicht aller Dienste auf der Startseite
+- Alphabetische Sortierung der Dienste
+- Automatisches Laden der Favicons der Zielsysteme
+- Sortierung der Konfiguration nach Ziel-IP
+- HTTP- und HTTPS-Backends
+- Unterstützung von WebSockets
+- Optionaler AdGuard-Home-Support
+- Wildcard-DNS-Unterstützung
+- Integrierte Versionsprüfung
+- Updates direkt aus der Weboberfläche
+- Installation über ein einzelnes Shell-Script
 
-Ziel: 192.168.2.99
+---
 
-Port: 8006
+# Architektur
 
-Protokoll: https
+Der Proxy Manager besteht im Wesentlichen aus zwei Komponenten:
 
-Die App:
-
-speichert die Einträge in config.json
-
-erzeugt daraus automatisch eine nginx-Konfiguration (generated.conf)
-
-kann optional passende DNS-Rewrites in AdGuard Home anlegen/löschen
-
-nginx leitet anschließend z. B.http://proxmox.home.arpa → https://192.168.2.99:8006
-
-Die eigentliche Verwaltungsseite läuft über FastAPI/Uvicorn und wird ebenfalls über nginx bereitgestellt.
-
-Aufbau
-
+```text
 Browser
-   |
-   v
-nginx :80 / später :443
-   |
-   +--> nginx.home.arpa  --> FastAPI/Uvicorn :8000
-   |
-   +--> proxmox.home.arpa --> Proxmox :8006
-   |
-   +--> ha.home.arpa      --> Home Assistant :8123
+   │
+   ▼
+ nginx :80
+   │
+   ├── bekannte Domain
+   │       │
+   │       ▼
+   │   Zielsystem
+   │
+   └── unbekannte Domain / Startseite
+           │
+           ▼
+     FastAPI :8000
+```
 
-Projektstruktur ungefähr:
+nginx übernimmt den eigentlichen Reverse Proxy.
 
-/opt/proxy-manager/
-├── main.py
-├── config.json
-├── settings.json
-├── settings.example.json
-├── requirements.txt
-├── templates/
-└── static/
+FastAPI stellt die Verwaltungsoberfläche sowie die Startseite bereit.
 
-Installation auf Debian/LXC
+---
 
-Repository klonen
+# Voraussetzungen
 
-cd /opt
-git clone git@github.com:USERNAME/proxy-manager.git
-cd proxy-manager
+Empfohlen wird eine kleine Debian-Installation oder ein Debian-LXC, beispielsweise unter Proxmox.
 
-Python venv erstellen
+Getestete bzw. vorgesehene Umgebung:
 
-apt update
-apt install python3-venv
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```text
+Debian
+Python 3
+nginx
+systemd
+Git
+```
 
-Falls noch keine config.json vorhanden ist:
+Die Installation lädt die benötigten Pakete automatisch nach.
 
-echo '[]' > config.json
+---
 
-settings.json
+# Installation
 
-settings.json sollte lokal bleiben und nicht in Git committed werden.
+Das Repository muss für die einfache Installation öffentlich erreichbar sein.
 
-Beispiel:
+Installation als `root`:
 
-{
-    "nginx_config_path": "/etc/nginx/sites-available/generated.conf",
-    "nginx_ip": "192.168.2.5",
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEIN-GITHUB-USER/proxy-manager/main/installation.sh | bash
+```
 
-    "adguard_enabled": true,
-    "adguard_url": "http://adguard.home.arpa",
-    "adguard_username": "admin",
-    "adguard_password": "PASSWORT"
-}
+Alternativ mit `sudo`:
 
-In .gitignore:
+```bash
+curl -fsSL https://raw.githubusercontent.com/DEIN-GITHUB-USER/proxy-manager/main/installation.sh | sudo bash
+```
 
-settings.json
+Während der Installation werden unter anderem folgende Informationen abgefragt:
 
-Für GitHub stattdessen eine settings.example.json ohne echte Zugangsdaten verwenden.
-
-FastAPI als systemd-Service
-
-Datei:
-
-nano /etc/systemd/system/proxy-manager.service
-
-Inhalt:
-
-[Unit]
-Description=Proxy Manager FastAPI
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/proxy-manager
-ExecStart=/opt/proxy-manager/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-
-Aktivieren:
-
-systemctl daemon-reload
-systemctl enable --now proxy-manager
-
-Status prüfen:
-
-systemctl status proxy-manager
-
-Logs:
-
-journalctl -u proxy-manager -f
-
-nginx Grundkonfiguration
-
-Die Verwaltungsseite sollte in einer festen nginx-Datei bleiben, z. B.:
-
-/etc/nginx/sites-available/main
+```text
+Interne Domain [home.arpa]:
+IP der nginx-LXC [automatisch erkannt]:
+```
 
 Beispiel:
 
-server {
-    listen 80;
-    server_name nginx.home.arpa;
+```text
+Interne Domain [home.arpa]: home.arpa
+IP der nginx-LXC [192.168.178.20]:
+```
 
-    location / {
-        proxy_pass http://127.0.0.1:8000;
+Anschließend wird automatisch:
 
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+```text
+nginx installiert
+Git installiert
+Python installiert
+Python venv erstellt
+Repository nach /opt/proxy-manager geklont
+Python-Abhängigkeiten installiert
+FastAPI-Systemdienst erstellt
+nginx konfiguriert
+Update-System eingerichtet
+Proxy Manager gestartet
+```
 
-Aktivieren:
+---
 
-ln -s /etc/nginx/sites-available/main /etc/nginx/sites-enabled/main
+# DNS
 
-Die automatisch erzeugten Proxy-Einträge landen getrennt in:
+Damit die internen Domains funktionieren, sollte im lokalen DNS ein Wildcard-Eintrag auf die IP des Proxy Managers zeigen.
 
+Beispiel:
+
+```text
+*.home.arpa → 192.168.178.20
+```
+
+Dadurch können später beliebige Dienste verwendet werden:
+
+```text
+homeassistant.home.arpa
+proxmox.home.arpa
+adguard.home.arpa
+nas.home.arpa
+```
+
+ohne für jeden Reverse Proxy einen eigenen DNS-Eintrag erstellen zu müssen.
+
+## AdGuard Home
+
+Bei Verwendung von AdGuard Home kann beispielsweise eine DNS-Umschreibung eingerichtet werden:
+
+```text
+*.home.arpa
+```
+
+auf:
+
+```text
+192.168.178.20
+```
+
+Die integrierte AdGuard-API-Unterstützung kann zusätzlich über `settings.json` aktiviert werden. Bei Verwendung eines Wildcard-DNS-Eintrags wird sie normalerweise nicht benötigt.
+
+---
+
+# Weboberfläche
+
+Nach erfolgreicher Installation ist die Oberfläche beispielsweise erreichbar über:
+
+```text
+http://nginx.home.arpa
+```
+
+oder direkt über die IP:
+
+```text
+http://192.168.178.20
+```
+
+## Startseite
+
+Die Startseite zeigt alle konfigurierten Dienste als Kacheln an.
+
+Jede Kachel enthält:
+
+```text
+Favicon
+
+Name des Dienstes
+```
+
+Das Favicon wird automatisch vom jeweiligen Zielsystem geladen.
+
+Die Einträge werden alphabetisch nach ihrem Namen sortiert.
+
+Ein Klick auf eine Kachel öffnet direkt den entsprechenden Reverse Proxy.
+
+---
+
+# Konfiguration
+
+Die Verwaltung befindet sich unter:
+
+```text
+/config
+```
+
+Dort können Reverse-Proxy-Einträge hinzugefügt oder gelöscht werden.
+
+Ein Eintrag besteht aus:
+
+```text
+Name
+Domain
+Ziel-IP / Hostname
+Port
+Protokoll
+```
+
+Beispiel:
+
+```text
+Name:       Proxmox
+Domain:     proxmox.home.arpa
+Ziel:       192.168.178.10
+Port:       8006
+Protokoll:  https
+```
+
+Für HTTP und HTTPS können die Standardports automatisch verwendet werden:
+
+```text
+HTTP  → 80
+HTTPS → 443
+```
+
+Wird kein Port angegeben, verwendet der Proxy Manager den passenden Standardport.
+
+---
+
+# Konfiguration anwenden
+
+Änderungen werden zunächst nur in:
+
+```text
+config.json
+```
+
+gespeichert.
+
+Die aktuell von nginx verwendete Konfiguration befindet sich in:
+
+```text
 /etc/nginx/sites-available/generated.conf
+```
 
-Einmalig aktivieren:
+Der Proxy Manager vergleicht beide Zustände automatisch.
 
-ln -s /etc/nginx/sites-available/generated.conf /etc/nginx/sites-enabled/generated.conf
+Wenn Änderungen noch nicht angewendet wurden, erscheint auf der Konfigurationsseite:
 
-nginx prüfen:
+```text
+⚠ Konfiguration geändert
 
-nginx -t
+Die Änderungen wurden noch nicht auf nginx angewendet.
 
-und neu laden:
+[ Konfiguration anwenden ]
+```
 
-systemctl reload nginx
+Beim Anwenden wird aus `config.json` die neue nginx-Konfiguration erzeugt.
 
-Generierte Proxy-Konfiguration
+Vor dem Reload wird die nginx-Konfiguration geprüft.
 
-Ein Eintrag wird ungefähr so erzeugt:
+```text
+config.json
+     │
+     ▼
+generated.conf
+     │
+     ▼
+ nginx -t
+     │
+     ├── Fehler → alte Konfiguration wiederherstellen
+     │
+     └── OK
+          │
+          ▼
+     nginx reload
+```
 
+Dadurch soll verhindert werden, dass eine fehlerhafte Konfiguration nginx unbrauchbar macht.
+
+---
+
+# Generierte nginx-Konfiguration
+
+Für jeden Proxy wird automatisch ein eigener nginx-Serverblock erzeugt.
+
+Beispiel:
+
+```nginx
 server {
     listen 80;
-    server_name ha.home.arpa;
+    server_name homeassistant.home.arpa;
 
     location / {
-        proxy_pass http://192.168.2.20:8123;
+        proxy_pass http://192.168.178.30:8123;
 
         proxy_http_version 1.1;
 
@@ -195,62 +313,490 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+```
 
-Die WebSocket-Header sind insbesondere für Anwendungen wie Home Assistant wichtig.
+WebSocket-Header werden automatisch gesetzt.
 
-AdGuard Home
+Damit funktionieren auch Anwendungen, die WebSockets benötigen.
 
-Wenn adguard_enabled auf true steht, kann die App beim Hinzufügen/Löschen eines Proxys automatisch einen DNS-Rewrite mitpflegen.
+---
 
-Beispiel:
+# Home Assistant
 
-proxmox.home.arpa -> 192.168.2.5
-ha.home.arpa      -> 192.168.2.5
+Bei Home Assistant muss der Reverse Proxy zusätzlich als vertrauenswürdiger Proxy eingetragen werden.
 
-Wichtig: Die Domain zeigt auf die nginx-LXC, nicht direkt auf das Zielsystem.
+Beispiel in `configuration.yaml`:
 
-nginx entscheidet danach anhand von server_name, wohin weitergeleitet wird.
-
-Hinweis für Home Assistant
-
-Home Assistant benötigt hinter einem Reverse Proxy zusätzlich eine passende Konfiguration in configuration.yaml.
-
-Beispiel:
-
+```yaml
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 192.168.2.5
+    - 192.168.178.20
+```
 
-Dabei ist 192.168.2.5 die IP der nginx-LXC.
+Dabei muss die IP des Proxy Managers verwendet werden.
 
-Danach Home Assistant neu starten.
+Anschließend Home Assistant neu starten.
 
-Ohne trusted_proxies kann die Login-Seite zwar erscheinen, danach aber z. B. die Meldung:
+---
 
-Unable to connect to Home Assistant
+# Lokale Dateien
 
-auftreten.
+Die eigentlichen Proxy-Einträge werden gespeichert in:
 
-Update auf der LXC
+```text
+config.json
+```
 
-cd /opt/proxy-manager
-git pull
-source .venv/bin/activate
-pip install -r requirements.txt
-systemctl restart proxy-manager
+Lokale Einstellungen befinden sich in:
 
-Danach bei Änderungen an der nginx-Konfiguration:
+```text
+settings.json
+```
 
-nginx -t
-systemctl reload nginx
+Diese Dateien sollten nicht in Git gespeichert werden.
 
-Nützliche Befehle
+Beispiel `.gitignore`:
 
+```gitignore
+.venv/
+config.json
+settings.json
+__pycache__/
+*.pyc
+```
+
+---
+
+# settings.json
+
+Beispiel:
+
+```json
+{
+    "nginx_config_path": "/etc/nginx/sites-available/generated.conf",
+    "nginx_ip": "192.168.178.20",
+
+    "adguard_enabled": false,
+    "adguard_url": "http://adguard.example.com",
+    "adguard_username": "",
+    "adguard_password": "",
+
+    "update_enabled": true,
+    "update_branch": "main",
+    "update_version_url": "https://raw.githubusercontent.com/DEIN-GITHUB-USER/proxy-manager/main/VERSION"
+}
+```
+
+Echte Zugangsdaten dürfen nicht in das öffentliche Repository committed werden.
+
+Für das Repository kann stattdessen eine Datei wie:
+
+```text
+settings.example.json
+```
+
+mit Platzhaltern verwendet werden.
+
+---
+
+# Versionierung
+
+Die aktuelle Version befindet sich in:
+
+```text
+VERSION
+```
+
+Beispiel:
+
+```text
+0.1.0
+```
+
+Für neue Versionen kann das Schema:
+
+```text
+MAJOR.MINOR.PATCH
+```
+
+verwendet werden.
+
+Beispiele:
+
+```text
+0.1.0   Erste Version
+0.1.1   Fehlerbehebung
+0.2.0   Neue Funktionen
+1.0.0   Erste stabile Hauptversion
+```
+
+---
+
+# Updates
+
+Der Proxy Manager kann die lokale Version mit der `VERSION`-Datei auf GitHub vergleichen.
+
+Wenn eine neue Version vorhanden ist, wird auf der Konfigurationsseite beispielsweise angezeigt:
+
+```text
+Installierte Version: 0.1.0
+
+Version 0.2.0 verfügbar
+
+[ Update installieren ]
+```
+
+Das Update wird über den systemd-Dienst:
+
+```text
+proxy-manager-update.service
+```
+
+ausgeführt.
+
+Dieser startet:
+
+```text
+update.sh
+```
+
+Der Update-Ablauf ist:
+
+```text
+GitHub prüfen
+     │
+     ▼
+git fetch
+     │
+     ▼
+neue Version vorhanden
+     │
+     ▼
+git pull --ff-only
+     │
+     ▼
+Python-Abhängigkeiten aktualisieren
+     │
+     ▼
+optionale Migration
+     │
+     ▼
+nginx prüfen
+     │
+     ▼
+Proxy Manager neu starten
+```
+
+Lokale Dateien wie:
+
+```text
+settings.json
+config.json
+```
+
+bleiben dabei erhalten.
+
+---
+
+# Update manuell ausführen
+
+Ein Update kann bei Bedarf auch direkt auf dem Server gestartet werden:
+
+```bash
+systemctl start proxy-manager-update.service
+```
+
+Status anzeigen:
+
+```bash
+systemctl status proxy-manager-update.service
+```
+
+Logs anzeigen:
+
+```bash
+journalctl -u proxy-manager-update.service
+```
+
+---
+
+# post_update.sh
+
+Falls eine zukünftige Version Änderungen am System benötigt, kann optional eine:
+
+```text
+post_update.sh
+```
+
+mit dem Update ausgeliefert werden.
+
+Damit können beispielsweise zukünftig:
+
+```text
+neue systemd-Dienste eingerichtet
+Verzeichnisse angelegt
+Konfigurationen migriert
+Berechtigungen angepasst
+```
+
+werden.
+
+Dadurch können bestehende Installationen auch bei größeren Änderungen weiter aktualisiert werden.
+
+---
+
+# Dienste
+
+FastAPI:
+
+```bash
 systemctl status proxy-manager
+```
+
+Neustart:
+
+```bash
+systemctl restart proxy-manager
+```
+
+Logs:
+
+```bash
+journalctl -u proxy-manager
+```
+
+Live-Logs:
+
+```bash
 journalctl -u proxy-manager -f
+```
 
+nginx:
+
+```bash
+systemctl status nginx
+```
+
+Konfiguration prüfen:
+
+```bash
 nginx -t
-systemctl reload nginx
+```
 
-cat /etc/nginx/sites-available/generated.conf
+nginx neu laden:
+
+```bash
+systemctl reload nginx
+```
+
+---
+
+# Verzeichnisstruktur
+
+Nach der Installation befindet sich das Projekt standardmäßig unter:
+
+```text
+/opt/proxy-manager
+```
+
+Beispiel:
+
+```text
+proxy-manager/
+├── VERSION
+├── main.py
+├── installation.sh
+├── update.sh
+├── requirements.txt
+├── config.json
+├── settings.json
+├── settings.example.json
+│
+├── templates/
+│   ├── base.html
+│   ├── home.html
+│   ├── config.html
+│   └── config_add.html
+│
+└── static/
+    ├── style.css
+    └── default-icon.svg
+```
+
+---
+
+# Entwicklung
+
+Repository klonen:
+
+```bash
+git clone https://github.com/DEIN-GITHUB-USER/proxy-manager.git
+cd proxy-manager
+```
+
+Python-Umgebung erstellen:
+
+## Windows
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Falls PowerShell die Aktivierung blockiert:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Danach:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+## Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Abhängigkeiten installieren:
+
+```bash
+pip install -r requirements.txt
+```
+
+Entwicklungsserver starten:
+
+```bash
+uvicorn main:app --reload
+```
+
+---
+
+# Git Workflow
+
+Änderungen prüfen:
+
+```bash
+git status
+```
+
+Änderungen hinzufügen:
+
+```bash
+git add .
+```
+
+Commit:
+
+```bash
+git commit -m "Beschreibung der Änderung"
+```
+
+Push:
+
+```bash
+git push
+```
+
+Bei einer neuen veröffentlichten Version zusätzlich die Datei:
+
+```text
+VERSION
+```
+
+anpassen.
+
+Beispiel:
+
+```text
+0.1.0
+```
+
+ändern zu:
+
+```text
+0.2.0
+```
+
+und gemeinsam mit den Änderungen committen.
+
+---
+
+# Zeilenenden
+
+Da die Shell-Skripte unter Linux ausgeführt werden, sollten sie mit LF-Zeilenenden gespeichert werden.
+
+Empfohlene `.gitattributes`:
+
+```gitattributes
+*.sh text eol=lf
+*.py text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+VERSION text eol=lf
+```
+
+---
+
+# Sicherheit
+
+Der Proxy Manager ist aktuell für den Einsatz in einem vertrauenswürdigen internen Netzwerk bzw. Homelab vorgesehen.
+
+Die Verwaltungsoberfläche sollte nicht ohne zusätzliche Absicherung direkt aus dem Internet erreichbar gemacht werden.
+
+Insbesondere sollten niemals folgende Dateien oder Daten öffentlich committed werden:
+
+```text
+settings.json
+config.json
+Passwörter
+API-Zugangsdaten
+Tokens
+private IP-Konfigurationen, sofern diese nicht veröffentlicht werden sollen
+```
+
+Bei HTTPS-Zielsystemen mit selbstsignierten Zertifikaten kann die Favicon-Abfrage aktuell die Zertifikatsprüfung deaktivieren.
+
+Das ist für interne Systeme praktisch, sollte bei einem Einsatz außerhalb eines vertrauenswürdigen Netzes jedoch entsprechend angepasst werden.
+
+---
+
+# Projektstatus
+
+Das Projekt befindet sich aktuell in Entwicklung.
+
+Aktuelle Version:
+
+```text
+0.1.0
+```
+
+Geplante bzw. mögliche Erweiterungen:
+
+```text
+HTTPS für Frontend-Domains
+Let's Encrypt / eigene Zertifikate
+Bearbeiten bestehender Proxy-Einträge
+Update-Fortschritt in der Weboberfläche
+Update-Historie
+Authentifizierung der Konfigurationsseite
+Favicon-Cache
+Statusanzeige der Zielsysteme
+Backup / Restore der Konfiguration
+```
+
+---
+
+# Lizenz
+
+Dieses Projekt steht unter der MIT License.
+
+Du darfst den Code frei verwenden, verändern, weitergeben und auch in eigenen Projekten einsetzen.
+
+Weitere Informationen befinden sich in der Datei `LICENSE`.
