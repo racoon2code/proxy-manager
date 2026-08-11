@@ -1,0 +1,25 @@
+.service-card {
+    min-height: 160px;
+    border-radius: 12px;
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.service-icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    margin-bottom: 15px;
+}
+
+.service-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--bs-body-color);
+}

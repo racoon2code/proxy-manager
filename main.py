@@ -1,10 +1,14 @@
 from pathlib import Path
 from textwrap import dedent
 
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from ipaddress import ip_address
+
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlsplit
 
 import json
 import subprocess
@@ -30,6 +34,14 @@ app.mount(
 def load_settings():
     with open(SETTINGS_FILE, "r", encoding="utf-8") as file:
         return json.load(file)
+
+def proxy_ip_sort_key(proxy):
+    try:
+        address = ip_address(proxy["target"])
+        return (0, address.version, int(address))
+    except ValueError:
+        # Falls irgendwann statt einer IP ein Hostname eingetragen wird
+        return (1, 0, proxy["target"].casefold())
 
 def check_nginx_config():
     result = subprocess.run(
@@ -175,17 +187,130 @@ def save_config(proxies):
             settings
         )
 
-@app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="home.html"
+
+@app.get("/favicon/{proxy_id}")
+def favicon(proxy_id: int):
+
+    proxies = load_proxies()
+
+    proxy = next(
+        (
+            proxy
+            for proxy in proxies
+            if proxy["id"] == proxy_id
+        ),
+        None
     )
 
+    if proxy is None:
+        return RedirectResponse(
+            url="/static/default-icon.svg"
+        )
+
+    base_url = (
+        f"{proxy['protocol']}://"
+        f"{proxy['target']}:{proxy['port']}/"
+    )
+
+    try:
+        page_response = requests.get(
+            base_url,
+            headers={
+                "Host": proxy["domain"]
+            },
+            timeout=5,
+            verify=False
+        )
+
+        page_response.raise_for_status()
+
+        soup = BeautifulSoup(
+            page_response.text,
+            "html.parser"
+        )
+
+        icon_url = None
+
+        for link in soup.find_all("link", href=True):
+
+            rel = [
+                value.lower()
+                for value in link.get("rel", [])
+            ]
+
+            if "icon" in rel:
+                icon_url = urljoin(
+                    page_response.url,
+                    link["href"]
+                )
+                break
+
+        # Falls kein <link rel="icon"> vorhanden ist
+        if icon_url is None:
+            icon_url = urljoin(
+                page_response.url,
+                "/favicon.ico"
+            )
+
+        icon_headers = {}
+
+        # Bei relativen Icons, die weiterhin vom Backend
+        # geladen werden, den ursprünglichen Host mitsenden.
+        if (
+            urlsplit(icon_url).hostname
+            == urlsplit(base_url).hostname
+        ):
+            icon_headers["Host"] = proxy["domain"]
+
+        icon_response = requests.get(
+            icon_url,
+            headers=icon_headers,
+            timeout=5,
+            verify=False
+        )
+
+        icon_response.raise_for_status()
+
+        content_type = icon_response.headers.get(
+            "Content-Type",
+            "image/x-icon"
+        )
+
+        return Response(
+            content=icon_response.content,
+            media_type=content_type,
+            headers={
+                "Cache-Control": "no-store"
+            }
+        )
+
+    except requests.RequestException:
+        return RedirectResponse(
+            url="/static/default-icon.svg"
+        )
+
+@app.get("/")
+def home(request: Request):
+
+    proxies = load_proxies()
+
+    proxies.sort(
+        key=lambda proxy: proxy["name"].casefold()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="home.html",
+        context={
+            "proxies": proxies
+        }
+    )
 @app.get("/config")
 def config(request: Request):
 
     proxies = load_proxies()
+
+    proxies.sort(key=proxy_ip_sort_key)
 
     return templates.TemplateResponse(
         request=request,
