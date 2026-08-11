@@ -175,6 +175,13 @@ def save_config(proxies):
             settings
         )
 
+@app.get("/")
+def home(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="home.html"
+    )
+
 @app.get("/config")
 def config(request: Request):
 
