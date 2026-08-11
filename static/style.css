@@ -24,11 +24,11 @@
     color: var(--bs-body-color);
 }
 
-.page-title {
+.page-title-with-href {
     color: inherit;
     text-decoration: none;
 }
 
-.page-title:hover {
+.page-title-with-href:hover {
     opacity: 0.8;
 }
