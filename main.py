@@ -507,26 +507,25 @@ def config_apply():
 
     generate_nginx_config(proxies)
 
-    success, message = check_nginx_config()
+    result = subprocess.run(
+        [
+            "sudo",
+            "/usr/local/sbin/proxy-manager-apply"
+        ],
+        capture_output=True,
+        text=True
+    )
 
-    if not success:
-        print(message)
+    if result.returncode != 0:
+
+        print(result.stdout)
+        print(result.stderr)
 
         with open(nginx_config_path, "w", encoding="utf-8") as file:
             file.write(old_config)
 
         return RedirectResponse(
             url="/config?status=error",
-            status_code=303
-        )
-
-    success, message = reload_nginx()
-
-    if not success:
-        print(message)
-
-        return RedirectResponse(
-            url="/config?status=reload_error",
             status_code=303
         )
 

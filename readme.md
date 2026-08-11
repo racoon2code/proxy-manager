@@ -81,13 +81,13 @@ Das Repository muss für die einfache Installation öffentlich erreichbar sein.
 Installation als `root`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DEIN-GITHUB-USER/proxy-manager/main/installation.sh | bash
+curl -fsSL https://raw.githubusercontent.com/racoon2code/proxy-manager/main/installation.sh | bash
 ```
 
 Alternativ mit `sudo`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DEIN-GITHUB-USER/proxy-manager/main/installation.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/racoon2code/proxy-manager/main/installation.sh | sudo bash
 ```
 
 Während der Installation werden unter anderem folgende Informationen abgefragt:
@@ -384,7 +384,7 @@ Beispiel:
 
     "update_enabled": true,
     "update_branch": "main",
-    "update_version_url": "https://raw.githubusercontent.com/DEIN-GITHUB-USER/proxy-manager/main/VERSION"
+    "update_version_url": "https://raw.githubusercontent.com/racoon2code/proxy-manager/main/VERSION"
 }
 ```
 
@@ -631,7 +631,7 @@ proxy-manager/
 Repository klonen:
 
 ```bash
-git clone https://github.com/DEIN-GITHUB-USER/proxy-manager.git
+git clone https://github.com/racoon2code/proxy-manager.git
 cd proxy-manager
 ```
 
