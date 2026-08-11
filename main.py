@@ -210,7 +210,7 @@ def config_add_save(
     name: str = Form(...),
     domain: str = Form(...),
     target: str = Form(...),
-    port: int = Form(...),
+    port: int | None = Form(None),
     protocol: str = Form(...)
 ):
 
@@ -229,6 +229,12 @@ def config_add_save(
         "port": port,
         "protocol": protocol
     }
+
+    if port is None:
+        if protocol == "http":
+            new_proxy["port"] = 80
+        if protocol == "https":
+            new_proxy["port"] = 443
 
     proxies.append(new_proxy)
 
