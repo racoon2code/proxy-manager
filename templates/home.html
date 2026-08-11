@@ -30,9 +30,9 @@ Home
 
         <a            
             {% if proxy.tls_passthrough %}
-                href="https://{{ proxy.domain }}"
+                href="https://{{ proxy.domain }}" target="_blank"
             {% else %}
-                href="http://{{ proxy.domain }}"
+                href="http://{{ proxy.domain }}" target="_blank"
             {% endif %}
             class="text-decoration-none"
         >
