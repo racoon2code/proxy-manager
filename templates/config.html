@@ -65,6 +65,20 @@ Konfiguration
 
 {% endif %}
 
+{% if request.query_params.get("status") == "success" %}
+
+<div class="alert alert-success" role="alert">
+  Konfiguration erfolgreich angewendet.
+</div>
+
+{% elif request.query_params.get("status") == "error" %}
+
+<div class="alert alert-danger" role="alert">
+  Fehler beim Anwenden der Konfiguration. Bitte überprüfen Sie die nginx-Konfiguration auf Fehler.
+</div>
+
+{% endif %}
+
 
 {% if update_status.enabled %}
 
@@ -136,7 +150,7 @@ Konfiguration
 {% endif %}
 
 
-<table class="table table-striped">
+<table class="table table-striped table-hover">
 
     <thead>
         <tr>
@@ -150,47 +164,40 @@ Konfiguration
 
     <tbody>
 
-        {% for proxy in proxies %}
+    {% for proxy in proxies %}
 
-        <tr>
-            <td>{{ proxy.name }}</td>
-            <td>{{ proxy.domain }}</td>
-            <td>{{ proxy.target }}:{{ proxy.port }}</td>
-            <td>{{ proxy.protocol }}</td>
+    <tr
+        style="cursor: pointer;"
+        onclick="window.location.href='/config/edit/{{ proxy.id }}'"
+    >
+        <td>{{ proxy.name }}</td>
+        <td>{{ proxy.domain }}</td>
+        <td>{{ proxy.target }}:{{ proxy.port }}</td>
+        <td>{{ proxy.protocol }}</td>
 
-            <td>
+        <td onclick="event.stopPropagation();">
 
-                <div class="d-inline-flex gap-2">
+            <form
+                action="/config/delete/{{ proxy.id }}"
+                method="post"
+                class="m-0 d-inline"
+                onsubmit="return confirm('Proxy wirklich löschen?');"
+            >
+                <button
+                    type="submit"
+                    class="btn btn-danger"
+                >
+                    Löschen
+                </button>
+            </form>
 
-                    <a
-                        href="/config/edit/{{ proxy.id }}"
-                        class="btn btn-primary"
-                    >
-                        Bearbeiten
-                    </a>
-                
-                    <form
-                        action="/config/delete/{{ proxy.id }}"
-                        method="post"
-                        class="m-0"
-                        onsubmit="return confirm('Proxy wirklich löschen?');"
-                    >
-                        <button
-                            type="submit"
-                            class="btn btn-danger"
-                        >
-                            Löschen
-                        </button>
-                    </form>
-                
-                </div>
-            </td>
+        </td>
 
-        </tr>
+    </tr>
 
-        {% endfor %}
+    {% endfor %}
 
-    </tbody>
+</tbody>
 
 </table>
 

@@ -630,9 +630,15 @@ def config_apply():
             encoding="utf-8"
         ) as file:
             old_stream_config = file.read()
-
-    generate_nginx_config(proxies)
-
+    try:
+        generate_nginx_config(proxies)
+    except:
+        return RedirectResponse(
+                    url="/config?status=error",
+                    status_code=303
+                )
+        
+        
     result = subprocess.run(
         [
             "sudo",
