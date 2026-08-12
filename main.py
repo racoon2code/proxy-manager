@@ -525,7 +525,11 @@ def config_add(request: Request):
 
     return templates.TemplateResponse(
         request=request,
-        name="config_add.html"
+        name="config_add.html",
+        context={
+            "proxy": None,
+            "edit_mode": False
+        }
     )
 
 
@@ -701,5 +705,74 @@ def config_update():
 
     return RedirectResponse(
         url="/config?update=started",
+        status_code=303
+    )
+
+@app.get("/config/edit/{proxy_id}")
+def config_edit(request: Request, proxy_id: int):
+
+    proxies = load_proxies()
+
+    proxy = next(
+        (
+            proxy
+            for proxy in proxies
+            if proxy["id"] == proxy_id
+        ),
+        None
+    )
+
+    if proxy is None:
+        return RedirectResponse(
+            url="/config",
+            status_code=303
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="config_add.html",
+        context={
+            "proxy": proxy,
+            "edit_mode": True
+        }
+    )
+
+@app.post("/config/edit/{proxy_id}")
+def config_edit_save(
+    proxy_id: int,
+    name: str = Form(...),
+    domain: str = Form(...),
+    target: str = Form(...),
+    port: int | None = Form(None),
+    protocol: str = Form(...),
+    tls_passthrough: bool = Form(False)
+):
+
+    proxies = load_proxies()
+
+    if port is None:
+        if protocol == "http":
+            port = 80
+
+        if protocol == "https":
+            port = 443
+
+    for proxy in proxies:
+
+        if proxy["id"] == proxy_id:
+
+            proxy["name"] = name
+            proxy["domain"] = domain
+            proxy["target"] = target
+            proxy["port"] = port
+            proxy["protocol"] = protocol
+            proxy["tls_passthrough"] = tls_passthrough
+
+            break
+
+    save_config(proxies)
+
+    return RedirectResponse(
+        url="/config",
         status_code=303
     )

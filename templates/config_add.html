@@ -1,23 +1,55 @@
 {% extends "base.html" %}
 
 {% block title %}
+
+{% if edit_mode %}
+Proxy bearbeiten
+{% else %}
 Proxy hinzufügen
+{% endif %}
+
 {% endblock %}
+
 
 {% block content %}
 
-<h1 class="mb-4">
-    Reverse Proxy hinzufügen
-</h1>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <h1>
+        {% if edit_mode %}
+            Proxy bearbeiten
+        {% else %}
+            Proxy hinzufügen
+        {% endif %}
+    </h1>
+
+    <a
+        href="/config"
+        class="btn btn-secondary"
+    >
+        Zurück
+    </a>
+
+</div>
 
 
-<form action="/config/add" method="post">
+<form
+    {% if edit_mode %}
+        action="/config/edit/{{ proxy.id }}"
+    {% else %}
+        action="/config/add"
+    {% endif %}
+    method="post"
+>
+
 
     <div class="mb-3">
 
         <label
             for="name"
-            class="form-label">
+            class="form-label"
+        >
             Name
         </label>
 
@@ -26,7 +58,8 @@ Proxy hinzufügen
             class="form-control"
             id="name"
             name="name"
-            placeholder="Proxmox"
+            value="{{ proxy.name if proxy else '' }}"
+            required
         >
 
     </div>
@@ -36,7 +69,8 @@ Proxy hinzufügen
 
         <label
             for="domain"
-            class="form-label">
+            class="form-label"
+        >
             Domain
         </label>
 
@@ -45,7 +79,9 @@ Proxy hinzufügen
             class="form-control"
             id="domain"
             name="domain"
-            placeholder="proxmox.home.arpa"
+            value="{{ proxy.domain if proxy else '' }}"
+            placeholder="z.B. proxmox.home.arpa"
+            required
         >
 
     </div>
@@ -55,8 +91,9 @@ Proxy hinzufügen
 
         <label
             for="target"
-            class="form-label">
-            Ziel-IP
+            class="form-label"
+        >
+            Ziel
         </label>
 
         <input
@@ -64,7 +101,9 @@ Proxy hinzufügen
             class="form-control"
             id="target"
             name="target"
-            placeholder="192.168.2.10"
+            value="{{ proxy.target if proxy else '' }}"
+            placeholder="z.B. 192.168.1.10"
+            required
         >
 
     </div>
@@ -74,8 +113,9 @@ Proxy hinzufügen
 
         <label
             for="port"
-            class="form-label">
-            Port (optional)
+            class="form-label"
+        >
+            Port
         </label>
 
         <input
@@ -83,30 +123,46 @@ Proxy hinzufügen
             class="form-control"
             id="port"
             name="port"
-            placeholder="8006"
+            value="{{ proxy.port if proxy else '' }}"
+            placeholder="Standard: 80 / 443"
+            min="1"
+            max="65535"
         >
+
+        <div class="form-text">
+            Wenn leer, wird bei HTTP Port 80 und bei HTTPS Port 443 verwendet.
+        </div>
 
     </div>
 
 
-    <div class="mb-4">
+    <div class="mb-3">
 
         <label
             for="protocol"
-            class="form-label">
+            class="form-label"
+        >
             Protokoll
         </label>
 
         <select
             class="form-select"
             id="protocol"
-            name="protocol">
+            name="protocol"
+            required
+        >
 
-            <option value="http">
+            <option
+                value="http"
+                {% if not proxy or proxy.protocol == "http" %}selected{% endif %}
+            >
                 HTTP
             </option>
 
-            <option value="https">
+            <option
+                value="https"
+                {% if proxy and proxy.protocol == "https" %}selected{% endif %}
+            >
                 HTTPS
             </option>
 
@@ -114,47 +170,58 @@ Proxy hinzufügen
 
     </div>
 
+
     <div class="form-check mb-4">
 
-    <input
-        class="form-check-input"
-        type="checkbox"
-        id="tls_passthrough"
-        name="tls_passthrough"
-        value="true"
-    >
+        <input
+            class="form-check-input"
+            type="checkbox"
+            id="tls_passthrough"
+            name="tls_passthrough"
+            value="true"
+            {% if proxy and proxy.get("tls_passthrough", false) %}checked{% endif %}
+        >
 
-    <label
-        class="form-check-label"
-        for="tls_passthrough"
-    >
-        TLS Passthrough
-    </label>
+        <label
+            class="form-check-label"
+            for="tls_passthrough"
+        >
+            TLS Passthrough
+        </label>
 
-    <div class="form-text">
-        HTTPS wird direkt zum Zielsystem durchgereicht.
-        Geeignet z. B. für Proxmox.
+        <div class="form-text">
+            Die verschlüsselte HTTPS-Verbindung wird direkt zum Zielsystem weitergeleitet.
+            Geeignet z.B. für Proxmox.
+        </div>
+
     </div>
-
-</div>
 
 
     <div class="d-flex gap-2">
 
         <button
             type="submit"
-            class="btn btn-primary">
-            Speichern
+            class="btn btn-primary"
+        >
+            {% if edit_mode %}
+                Änderungen speichern
+            {% else %}
+                Hinzufügen
+            {% endif %}
         </button>
+
 
         <a
             href="/config"
-            class="btn btn-secondary">
+            class="btn btn-secondary"
+        >
             Abbrechen
         </a>
 
     </div>
 
+
 </form>
+
 
 {% endblock %}

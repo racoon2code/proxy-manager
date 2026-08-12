@@ -160,19 +160,30 @@ Konfiguration
 
             <td>
 
-                <form
-                    action="/config/delete/{{ proxy.id }}"
-                    method="post"
-                    onsubmit="return confirm('Proxy wirklich löschen?');"
-                >
-                    <button
-                        type="submit"
-                        class="btn btn-danger"
-                    >
-                        Löschen
-                    </button>
-                </form>
+                <div class="d-inline-flex gap-2">
 
+                    <a
+                        href="/config/edit/{{ proxy.id }}"
+                        class="btn btn-primary"
+                    >
+                        Bearbeiten
+                    </a>
+                
+                    <form
+                        action="/config/delete/{{ proxy.id }}"
+                        method="post"
+                        class="m-0"
+                        onsubmit="return confirm('Proxy wirklich löschen?');"
+                    >
+                        <button
+                            type="submit"
+                            class="btn btn-danger"
+                        >
+                            Löschen
+                        </button>
+                    </form>
+                
+                </div>
             </td>
 
         </tr>
