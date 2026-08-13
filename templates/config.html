@@ -141,9 +141,7 @@ Konfiguration
 
             {% endif %}
 
-        </div>
-
-        {% if request.query_params.get("update") == "started" %}
+            {% if request.query_params.get("update") == "started" %}
 
             <div class="alert alert-success" role="alert">
             Update wurde gestartet. In ein paar Sekunden kannst du die Seite neuladen.
@@ -156,6 +154,8 @@ Konfiguration
             </div>
 
             {% endif %}
+
+        </div>
 
     </div>
 
