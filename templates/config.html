@@ -143,6 +143,20 @@ Konfiguration
 
         </div>
 
+        {% if request.query_params.get("update") == "started" %}
+
+            <div class="alert alert-success" role="alert">
+            Update wurde gestartet. In ein paar Sekunden kannst du die Seite neuladen.
+            </div>
+
+            {% elif request.query_params.get("update") == "error" %}
+
+            <div class="alert alert-danger" role="alert">
+            Fehler beim Starten des Updates. Bitte wende dich an deinen Administrator.
+            </div>
+
+            {% endif %}
+
     </div>
 
 </div>
