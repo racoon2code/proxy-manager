@@ -89,7 +89,7 @@ def build_nginx_config(proxies):
     config_lines = []
 
     for proxy in proxies:
-        if proxy.get("dns_administrator", "") == "nginx":
+        if proxy.get("dns_administrator", "nginx") == "nginx":
             if proxy.get("tls_passthrough", False):
 
                 server_block = dedent(f"""
@@ -134,6 +134,7 @@ def build_nginx_stream_config(proxies):
         proxy
         for proxy in proxies
         if proxy.get("tls_passthrough", False)
+        and proxy.get("dns_administrator", "nginx") == "nginx"
     ]
 
     if not passthrough_proxies:
@@ -303,14 +304,14 @@ def get_update_status():
     }
 
 
-def add_adguard_rewrite(domain, settings):
+def add_adguard_rewrite(domain, answer, settings):
     url = settings["adguard_url"].rstrip("/")
 
     response = requests.post(
         f"{url}/control/rewrite/add",
         json={
             "domain": domain,
-            "answer": settings["nginx_ip"]
+            "answer": answer
         },
         auth=(
             settings["adguard_username"],
@@ -322,14 +323,14 @@ def add_adguard_rewrite(domain, settings):
     response.raise_for_status()
 
 
-def delete_adguard_rewrite(domain, settings):
+def delete_adguard_rewrite(domain, answer, settings):
     url = settings["adguard_url"].rstrip("/")
 
     response = requests.post(
         f"{url}/control/rewrite/delete",
         json={
             "domain": domain,
-            "answer": settings["nginx_ip"]
+            "answer": answer
         },
         auth=(
             settings["adguard_username"],
@@ -343,26 +344,59 @@ def delete_adguard_rewrite(domain, settings):
 
 def sync_adguard_rewrites(old_proxies, new_proxies, settings):
 
-    old_domains = {
-        proxy["domain"].strip().lower()
+    old_rewrites = {
+        proxy["domain"].strip().lower(): proxy["target"].strip()
         for proxy in old_proxies
-        if proxy.get("adguard", False)
+        if proxy.get("dns_administrator") == "adguard"
     }
 
-    new_domains = {
-        proxy["domain"].strip().lower()
+    new_rewrites = {
+        proxy["domain"].strip().lower(): proxy["target"].strip()
         for proxy in new_proxies
-        if proxy.get("adguard", False)
+        if proxy.get("dns_administrator") == "adguard"
     }
+
+    old_domains = set(old_rewrites)
+    new_domains = set(new_rewrites)
 
     added_domains = new_domains - old_domains
     removed_domains = old_domains - new_domains
 
-    for domain in added_domains:
-        add_adguard_rewrite(domain, settings)
+    changed_domains = {
+        domain
+        for domain in old_domains & new_domains
+        if old_rewrites[domain] != new_rewrites[domain]
+    }
 
+    # Neue AdGuard-Einträge
+    for domain in added_domains:
+        add_adguard_rewrite(
+            domain,
+            new_rewrites[domain],
+            settings
+        )
+
+    # Entfernte AdGuard-Einträge
     for domain in removed_domains:
-        delete_adguard_rewrite(domain, settings)
+        delete_adguard_rewrite(
+            domain,
+            old_rewrites[domain],
+            settings
+        )
+
+    # Ziel-IP wurde geändert
+    for domain in changed_domains:
+        delete_adguard_rewrite(
+            domain,
+            old_rewrites[domain],
+            settings
+        )
+
+        add_adguard_rewrite(
+            domain,
+            new_rewrites[domain],
+            settings
+        )
 
 
 def save_config(proxies):
@@ -544,7 +578,7 @@ def config_add_save(
     port: int | None = Form(None),
     protocol: str = Form(...),
     tls_passthrough: bool = Form(False),
-    dns_administrator: str = Form(...)
+    dns_administrator: str = Form("nginx")
 ):
 
     proxies = load_proxies()
@@ -758,7 +792,7 @@ def config_edit_save(
     port: int | None = Form(None),
     protocol: str = Form(...),
     tls_passthrough: bool = Form(False),
-    dns_administrator: str = Form(...)
+    dns_administrator: str = Form("nginx")
 ):
 
     proxies = load_proxies()
