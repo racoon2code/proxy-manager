@@ -36,7 +36,7 @@ fi
 # Nur Änderungen an getrackten Dateien berücksichtigen.
 # settings.json / config.json sind ignoriert.
 
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+if [[ -n "$(git status --porcelain --untracked-files=no -- . ':(exclude)settings.json')" ]]; then
 
     echo "Lokale Änderungen an Programmdateien gefunden."
     echo "Automatisches Update wird abgebrochen."
