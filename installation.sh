@@ -55,6 +55,37 @@ fi
 
 print_header
 
+# ============================================================
+# Abfrage AdGuard Home
+# ============================================================
+
+#!/bin/bash
+
+read -rp "AdGuard nutzen? [y/N]: " ADGUARD_USE
+
+if [[ "$ADGUARD_USE" =~ ^[Yy]$ ]]; then
+
+    read -rp "AdGuard Adresse/IP: " ADGUARD_URL
+
+    if [[ ! "$ADGUARD_URL" =~ ^https?:// ]]; then
+        ADGUARD_URL="http://$ADGUARD_URL"
+    fi
+
+    read -rp "AdGuard Benutzername: " ADGUARD_USER
+    read -rsp "AdGuard Passwort: " ADGUARD_PASSWORD
+    echo
+
+    ADGUARD_ENABLED=true
+
+else
+
+    ADGUARD_ENABLED=false
+    ADGUARD_IP=""
+    ADGUARD_USER=""
+    ADGUARD_PASSWORD=""
+
+fi
+
 
 # ============================================================
 # Domain abfragen
@@ -334,10 +365,10 @@ if [[ ! -f "$APP_DIR/settings.json" ]]; then
     "nginx_stream_config_path": "$NGINX_STREAM_GENERATED",
     "nginx_ip": "$NGINX_IP",
 
-    "adguard_enabled": false,
-    "adguard_url": "",
-    "adguard_username": "",
-    "adguard_password": "",
+    "adguard_enabled": $ADGUARD_ENABLED,
+    "adguard_url": "$ADGUARD_IP",
+    "adguard_username": "$ADGUARD_USER",
+    "adguard_password": "$ADGUARD_PASSWORD",
 
     "update_enabled": true,
     "update_branch": "$BRANCH",
