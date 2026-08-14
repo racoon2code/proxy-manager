@@ -744,7 +744,8 @@ def config_edit(request: Request, proxy_id: int):
         name="config_add.html",
         context={
             "proxy": proxy,
-            "edit_mode": True
+            "edit_mode": True,
+            "dns_enabled": load_settings().get("adguard_enabled", False)
         }
     )
 
