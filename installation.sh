@@ -59,8 +59,6 @@ print_header
 # Abfrage AdGuard Home
 # ============================================================
 
-#!/bin/bash
-
 read -rp "AdGuard nutzen? [y/N]: " ADGUARD_USE
 
 if [[ "$ADGUARD_USE" =~ ^[Yy]$ ]]; then
