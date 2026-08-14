@@ -59,18 +59,22 @@ print_header
 # Abfrage AdGuard Home
 # ============================================================
 
-read -rp "AdGuard nutzen? [y/N]: " ADGUARD_USE
+ADGUARD_USE=""
+
+if [[ -r /dev/tty ]]; then
+    read -r -p "AdGuard nutzen? [y/N]: " ADGUARD_USE < /dev/tty
+fi
 
 if [[ "$ADGUARD_USE" =~ ^[Yy]$ ]]; then
 
-    read -rp "AdGuard Adresse/IP: " ADGUARD_URL
+    read -r -p "AdGuard Adresse/IP: " ADGUARD_URL < /dev/tty
 
     if [[ ! "$ADGUARD_URL" =~ ^https?:// ]]; then
         ADGUARD_URL="http://$ADGUARD_URL"
     fi
 
-    read -rp "AdGuard Benutzername: " ADGUARD_USER
-    read -rsp "AdGuard Passwort: " ADGUARD_PASSWORD
+    read -r -p "AdGuard Benutzername: " ADGUARD_USER < /dev/tty
+    read -r -s -p "AdGuard Passwort: " ADGUARD_PASSWORD < /dev/tty
     echo
 
     ADGUARD_ENABLED=true
@@ -78,7 +82,7 @@ if [[ "$ADGUARD_USE" =~ ^[Yy]$ ]]; then
 else
 
     ADGUARD_ENABLED=false
-    ADGUARD_IP=""
+    ADGUARD_URL=""
     ADGUARD_USER=""
     ADGUARD_PASSWORD=""
 
@@ -364,7 +368,7 @@ if [[ ! -f "$APP_DIR/settings.json" ]]; then
     "nginx_ip": "$NGINX_IP",
 
     "adguard_enabled": $ADGUARD_ENABLED,
-    "adguard_url": "$ADGUARD_IP",
+    "adguard_url": "$ADGUARD_URL",
     "adguard_username": "$ADGUARD_USER",
     "adguard_password": "$ADGUARD_PASSWORD",
 
