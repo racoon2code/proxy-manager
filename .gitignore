@@ -8,3 +8,4 @@ config.json
 *.log
 help.txt
 proxies.conf
+settings.json
