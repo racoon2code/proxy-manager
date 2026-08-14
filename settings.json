@@ -3,7 +3,7 @@
     "nginx_stream_config_path": "/etc/nginx/stream-enabled/generated-stream.conf",
     "nginx_ip": "XXX.XXX.XXX.XXX",
 
-    "adguard_enabled": false,
+    "adguard_enabled": true,
     "adguard_url": "http://adguard.example.com",
     "adguard_username": "YOUR_ADGUARD_USERNAME",
     "adguard_password": "YOUR_ADGUARD_PASSWORD",

@@ -170,6 +170,42 @@ Proxy hinzufügen
 
     </div>
 
+    {% if dns_enabled %}
+
+    <div class="mb-3">
+
+        <label
+            for="dns_administrator"
+            class="form-label"
+        >
+            Namensauflösung (DNS)
+        </label>
+
+    <select
+            class="form-select"
+            id="dns_administrator"
+            name="dns_administrator"
+            required
+        >
+
+            <option
+                value="nginx"
+                {% if not proxy or proxy.dns_administrator == "nginx" %}selected{% endif %}
+            >
+                NGINX
+            </option>
+
+            <option
+                value="adguard"
+                {% if proxy and proxy.dns_administrator == "adguard" %}selected{% endif %}
+            >
+                AdGuard
+            </option>
+
+        </select>
+    </div>
+    {% endif %}
+
 
     <div class="form-check mb-4">
 

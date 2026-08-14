@@ -89,42 +89,42 @@ def build_nginx_config(proxies):
     config_lines = []
 
     for proxy in proxies:
+        if proxy.get("dns_administrator", "") == "nginx":
+            if proxy.get("tls_passthrough", False):
 
-        if proxy.get("tls_passthrough", False):
+                server_block = dedent(f"""
+                    server {{
+                        listen 80;
+                        server_name {proxy['domain']};
 
-            server_block = dedent(f"""
-                server {{
-                    listen 80;
-                    server_name {proxy['domain']};
-
-                    return 301 https://$host$request_uri;
-                }}
-            """).strip()
-
-        else:
-
-            server_block = dedent(f"""
-                server {{
-                    listen 80;
-                    server_name {proxy['domain']};
-
-                    location / {{
-                        proxy_pass {proxy['protocol']}://{proxy['target']}:{proxy['port']};
-
-                        proxy_http_version 1.1;
-
-                        proxy_set_header Upgrade $http_upgrade;
-                        proxy_set_header Connection "upgrade";
-
-                        proxy_set_header Host $host;
-                        proxy_set_header X-Real-IP $remote_addr;
-                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto $scheme;
+                        return 301 https://$host$request_uri;
                     }}
-                }}
-            """).strip()
+                """).strip()
 
-        config_lines.append(server_block)
+            else:
+
+                server_block = dedent(f"""
+                    server {{
+                        listen 80;
+                        server_name {proxy['domain']};
+
+                        location / {{
+                            proxy_pass {proxy['protocol']}://{proxy['target']}:{proxy['port']};
+
+                            proxy_http_version 1.1;
+
+                            proxy_set_header Upgrade $http_upgrade;
+                            proxy_set_header Connection "upgrade";
+
+                            proxy_set_header Host $host;
+                            proxy_set_header X-Real-IP $remote_addr;
+                            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                            proxy_set_header X-Forwarded-Proto $scheme;
+                        }}
+                    }}
+                """).strip()
+
+            config_lines.append(server_block)
 
     return "\n\n".join(config_lines)
 
@@ -346,11 +346,13 @@ def sync_adguard_rewrites(old_proxies, new_proxies, settings):
     old_domains = {
         proxy["domain"].strip().lower()
         for proxy in old_proxies
+        if proxy.get("adguard", False)
     }
 
     new_domains = {
         proxy["domain"].strip().lower()
         for proxy in new_proxies
+        if proxy.get("adguard", False)
     }
 
     added_domains = new_domains - old_domains
@@ -528,7 +530,8 @@ def config_add(request: Request):
         name="config_add.html",
         context={
             "proxy": None,
-            "edit_mode": False
+            "edit_mode": False,
+            "dns_enabled": load_settings().get("adguard_enabled", False)
         }
     )
 
@@ -540,7 +543,8 @@ def config_add_save(
     target: str = Form(...),
     port: int | None = Form(None),
     protocol: str = Form(...),
-    tls_passthrough: bool = Form(False)
+    tls_passthrough: bool = Form(False),
+    dns_administrator: str = Form(...)
 ):
 
     proxies = load_proxies()
@@ -557,7 +561,8 @@ def config_add_save(
         "target": target,
         "port": port,
         "protocol": protocol,
-        "tls_passthrough": tls_passthrough
+        "tls_passthrough": tls_passthrough,
+        "dns_administrator": dns_administrator        
     }
 
     if port is None:
@@ -751,7 +756,8 @@ def config_edit_save(
     target: str = Form(...),
     port: int | None = Form(None),
     protocol: str = Form(...),
-    tls_passthrough: bool = Form(False)
+    tls_passthrough: bool = Form(False),
+    dns_administrator: str = Form(...)
 ):
 
     proxies = load_proxies()
@@ -773,6 +779,7 @@ def config_edit_save(
             proxy["port"] = port
             proxy["protocol"] = protocol
             proxy["tls_passthrough"] = tls_passthrough
+            proxy["dns_administrator"] = dns_administrator
 
             break
 
