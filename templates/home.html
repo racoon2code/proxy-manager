@@ -29,11 +29,16 @@ Home
     <div class="col">
 
         <a            
-            {% if proxy.tls_passthrough %}
-                href="https://{{ proxy.domain }}" target="_blank"
-            {% else %}
-                href="http://{{ proxy.domain }}" target="_blank"
-            {% endif %}
+        {% if proxy.tls_passthrough %}
+            href="https://{{ proxy.domain }}" target="_blank"
+
+        {% elif proxy.dns_administrator == "adguard" %}
+            href="http://{{ proxy.domain }}:{{ proxy.port }}" target="_blank"
+
+        {% else %}
+            href="http://{{ proxy.domain }}" target="_blank"
+        {% endif %}
+        
             class="text-decoration-none"
         >
 
