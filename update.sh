@@ -99,6 +99,8 @@ echo
 # ============================================================
 
 git pull --ff-only origin "$BRANCH"
+chown proxy-manager:proxy-manager /opt/proxy-manager/settings.json
+chmod 600 /opt/proxy-manager/settings.json
 
 
 # ============================================================

@@ -387,10 +387,10 @@ else
 fi
 
 
-chown root:"$APP_USER" \
+chown "$APP_USER":"$APP_USER" \
     "$APP_DIR/settings.json"
 
-chmod 640 \
+chmod 600 \
     "$APP_DIR/settings.json"
 
 

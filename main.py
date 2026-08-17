@@ -882,22 +882,29 @@ def config_adguard_config_save(
     if settings.get("adguard_password") != adguard_password and adguard_password != "":
         settings["adguard_password"] = adguard_password
 
-    with open(
-        SETTINGS_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-        json.dump(
-            settings,
-            file,
-            indent=4,
-            ensure_ascii=False
-        )
+    try:
+        with open(
+            SETTINGS_FILE,
+            "w",
+            encoding="utf-8"
+        ) as file:
+            json.dump(
+                settings,
+                file,
+                indent=4,
+                ensure_ascii=False
+            )
 
-    return RedirectResponse(
-        url="/config/adguard-config?status=success",
-        status_code=303
-    )
+        return RedirectResponse(
+            url="/config/adguard-config?status=success",
+            status_code=303
+        )
+    except Exception as e:
+        print(f"Error saving AdGuard settings: {e}")
+        return RedirectResponse(
+            url="/config/adguard-config?status=error",
+            status_code=303
+        )
     
     
 @app.get("/config/adguard-test")
