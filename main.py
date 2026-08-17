@@ -303,7 +303,26 @@ def get_update_status():
         "check_failed": False
     }
 
+def try_adguard_connection(settings):
+    url = settings["adguard_url"].rstrip("/")
 
+    try:
+        response = requests.get(
+            f"{url}/control/rewrite/list",
+            auth=(
+                settings["adguard_username"],
+                settings["adguard_password"]
+            ),
+            timeout=5
+        )
+
+        response.raise_for_status()
+
+        return True
+
+    except requests.RequestException:
+        return False
+    
 def add_adguard_rewrite(domain, answer, settings):
     url = settings["adguard_url"].rstrip("/")
 
@@ -824,3 +843,83 @@ def config_edit_save(
         url="/config",
         status_code=303
     )
+    
+@app.get("/config/adguard-config")
+def config_adguard_config(request: Request):
+
+    settings = load_settings()
+    adguard_enabled = settings.get("adguard_enabled", False)
+    adguard_url = settings.get("adguard_url", "").rstrip("/")
+    adguard_username = settings.get("adguard_username", "")
+    adguard_password = settings.get("adguard_password", "")
+
+
+    return templates.TemplateResponse(
+        request=request,
+        name="config_adguard.html",
+        context={
+            "adguard_enabled": adguard_enabled,
+            "adguard_url": adguard_url,
+            "adguard_username": adguard_username,
+            "adguard_password": adguard_password
+        }
+    )
+    
+@app.post("/config/adguard-config")
+def config_adguard_config_save(
+    adguard_enabled: bool = Form(False),
+    adguard_url: str = Form(""),
+    adguard_username: str = Form(""),
+    adguard_password: str = Form("")
+):
+
+    settings = load_settings()
+
+    settings["adguard_enabled"] = adguard_enabled
+    settings["adguard_url"] = adguard_url.rstrip("/")
+    settings["adguard_username"] = adguard_username
+    
+    if settings.get("adguard_password") != adguard_password and adguard_password != "":
+        settings["adguard_password"] = adguard_password
+
+    with open(
+        SETTINGS_FILE,
+        "w",
+        encoding="utf-8"
+    ) as file:
+        json.dump(
+            settings,
+            file,
+            indent=4,
+            ensure_ascii=False
+        )
+
+    return RedirectResponse(
+        url="/config/adguard-config?status=success",
+        status_code=303
+    )
+    
+    
+@app.get("/config/adguard-test")
+def config_adguard_test(request: Request):
+
+    settings = load_settings()
+
+    if not settings.get("adguard_enabled", False):
+        return RedirectResponse(
+            url="/config/adguard-config?test=disabled",
+            status_code=303
+        )
+
+    connection_successful = try_adguard_connection(settings)
+
+    if connection_successful:
+        return RedirectResponse(
+            url="/config/adguard-config?test=success",
+            status_code=303
+        )
+    else:
+        return RedirectResponse(
+            url="/config/adguard-config?test=error",
+            status_code=303
+        )

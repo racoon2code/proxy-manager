@@ -15,13 +15,6 @@ Konfiguration
 
     <div class="d-flex gap-2">
 
-        <a
-            href="/config/add"
-            class="btn btn-primary"
-        >
-            + Hinzufügen
-        </a>
-
         <form
             action="/config/apply"
             method="post"
@@ -33,6 +26,13 @@ Konfiguration
                 Konfiguration anwenden
             </button>
         </form>
+
+                <a
+            href="/config/adguard-config"
+            class="btn btn-primary"
+        >
+            AdGuard Home Konfiguration
+        </a>
 
     </div>
 
@@ -163,6 +163,14 @@ Konfiguration
 
 {% endif %}
 
+<div class="d-flex justify-content-end mb-4">
+    <a
+        href="/config/add"
+        class="btn btn-primary"
+    >
+        + Hinzufügen
+    </a>
+</div>
 
 <table class="table table-striped table-hover">
 

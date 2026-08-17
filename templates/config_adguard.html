@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}
+AdGuard Home Konfiguration
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <a href="/" class="page-title-with-href">
+    <h1 class="mb-0">Konfiguration AdGuard Home</h1>
+    </a>
+</div>
+
+{% if request.query_params.get("test") == "success" %}
+
+<div class="alert alert-success" role="alert">
+Verbindung zum AdGuard Home erfolgreich getestet.
+</div>
+
+{% elif request.query_params.get("test") == "error" %}
+
+<div class="alert alert-danger" role="alert">
+Fegler beim Testen der Verbindung zum AdGuard Home. Bitte überprüfe die Konfiguration.
+</div>
+
+{% endif %}
+
+<form 
+    action="/config/adguard-config"
+    method="post">
+
+<div class="mb-3 form-check">
+    <input
+        type="checkbox"
+        class="form-check-input"
+        id="check_adguard_enabled"
+        name="adguard_enabled"
+        {% if adguard_enabled %}checked{% endif %}
+    >
+    <label class="form-check-label" for="check_adguard_enabled">
+        AdGuard Home Integration aktivieren
+    </label>
+</div>
+
+<div class="mb-3">
+    <label for="adguard_url" class="form-label">
+        URL
+    </label>
+    <input
+        type="url"
+        class="form-control"
+        id="adguard_url"
+        name="adguard_url"
+        value="{{ adguard_url if adguard_url else '' }}"
+        placeholder="https://example.local"
+    >
+</div>
+
+<div class="mb-3">
+    <label for="adguard_username" class="form-label">
+        Benutzername
+    </label>
+    <input
+        type="text"
+        class="form-control"
+        id="adguard_username"
+        name="adguard_username"
+        value="{{ adguard_username if adguard_username else '' }}"
+        autocomplete="username"
+    >
+</div>
+
+<div class="mb-3">
+    <label for="adguard_password" class="form-label">
+        Passwort
+    </label>
+    <input
+        type="password"
+        class="form-control"
+        id="adguard_password"
+        name="adguard_password"
+        value=""
+        {% if adguard_password %}placeholder="Wenn das Passwort nicht geändert werden soll, leer lassen" {% else %}placeholder="Hier Passwort eingeben"{% endif %}
+        autocomplete="current-password"
+    >
+</div>
+
+    <div class="d-flex gap-2">
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Speichern
+        </button>
+
+
+        <a
+            href="/config"
+            class="btn btn-secondary"
+        >
+            Abbrechen
+        </a>
+
+        {% if adguard_enabled %}
+        <a
+            href="/config/adguard-test"
+            class="btn btn-success"
+        >
+            Verbindung zum AdGuard Home testen
+        </a>
+        {% endif %}
+    </div>
+
+</form>
+
+{% endblock %}
