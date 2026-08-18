@@ -533,7 +533,7 @@ def favicon(proxy_id: int):
 
     except requests.RequestException:
         return RedirectResponse(
-            url="/static/default-icon.svg"
+            url="/static/favicon.png"
         )
 
 
