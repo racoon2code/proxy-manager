@@ -13,6 +13,9 @@ from urllib.parse import urljoin, urlsplit
 import json
 import subprocess
 import requests
+import base64
+import binascii
+from urllib.parse import unquote_to_bytes
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -451,7 +454,7 @@ def favicon(proxy_id: int):
 
     if proxy is None:
         return RedirectResponse(
-            url="/static/default-icon.svg"
+            url="/static/favicon.png"
         )
 
     base_url = (
@@ -486,14 +489,56 @@ def favicon(proxy_id: int):
             ]
 
             if "icon" in rel:
-                icon_url = urljoin(
-                    page_response.url,
-                    link["href"]
-                )
+                icon_url = link["href"]
                 break
 
-        # Falls kein <link rel="icon"> vorhanden ist
-        if icon_url is None:
+        # --------------------------------------------------
+        # Sonderfall: Base64-encoded Favicon
+        # --------------------------------------------------
+
+        if icon_url and icon_url.startswith("data:image/"):
+
+            try:
+                header, data = icon_url.split(",", 1)
+
+                media_type = (
+                    header
+                    .split(";")[0]
+                    .replace("data:", "")
+                )
+
+                if ";base64" in header:
+                    icon_data = base64.b64decode(data)
+                else:
+                    icon_data = unquote_to_bytes(data)
+
+                return Response(
+                    content=icon_data,
+                    media_type=media_type,
+                    headers={
+                        "Cache-Control": "no-store"
+                    }
+                )
+
+            except (
+                ValueError,
+                binascii.Error
+            ):
+                return RedirectResponse(
+                    url="/static/favicon.png?status=nofavicon"
+                )
+
+        # --------------------------------------------------
+        # Normales Favicon
+        # --------------------------------------------------
+
+        if icon_url is not None:
+            icon_url = urljoin(
+                page_response.url,
+                icon_url
+            )
+            
+        else:
             icon_url = urljoin(
                 page_response.url,
                 "/favicon.ico"
